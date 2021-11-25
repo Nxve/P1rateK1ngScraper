@@ -1,15 +1,15 @@
 ## Info Dump
 
-- [-] Monster
+- [ ] Monster
     - [x] Images
     - [x] Attributes
     - [x] Skills
     - [x] Drops
     - [x] Required in Mission
     - [ ] Spawn Points
-- [-] Item
+- [ ] Item
     - [x] Icon
-    - [-] Properties
+    - [ ] Properties
     - [x] Attributes
     - [x] Found In NPC
     - [x] Drop From
