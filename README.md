@@ -1,3 +1,19 @@
+## Usage Example
+
+- bash:
+```
+OVERWRITE=true VERBOSE=1 node index.js
+```
+
+#### Environment Variables
+- OVERWRITE *: Boolean*
+    - default: **false**
+- PATH_DUMP *: String*
+    - default: **%workingDir%/Dump**
+- VERBOSE *: Number (0-2)*
+    - default: **2**
+
+
 ## Info Dump
 
 - [ ] Monster
