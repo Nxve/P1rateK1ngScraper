@@ -1,0 +1,13 @@
+{
+  "name": "piratekingscraper",
+  "version": "1.0.0",
+  "description": "Dump https://pirateking.online/ public database locally",
+  "main": "index.js",
+  "scripts": {},
+  "author": "Nxve",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.24.0",
+    "cheerio": "^1.0.0-rc.10"
+  }
+}
