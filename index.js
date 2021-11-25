@@ -4,7 +4,7 @@ const Fs = require('fs'),
       Cheerio = require('cheerio'),
       { stdout } = require('process');
 
-const OVERWRITE = process.env.OVERWRITE ?? false,
+const OVERWRITE = process.env.OVERWRITE ? (process.env.OVERWRITE.toLowerCase() === 'true') : false,
       PATH_DUMP = process.env.PATH_DUMP ?? Path.resolve(__dirname, 'Dump'),
       VERBOSE = process.env.VERBOSE ?? 2; // 0: Minimal / 1: Reduced / 2: Full
 
@@ -93,7 +93,7 @@ async function getMonsterInfo(id){
                 const skillId = $(elSkillId).text().trim().split(' ')[1];
                 monsterInfo.skills[iSkill] = {id:skillId};
                 if (!hasDumpedSkill(skillId) && !SKILLS_FETCH_QUEUE[skillId]){
-                  if (VERBOSE === 2) stdout.write(`+Skill[${skillId}] `);
+                  if (VERBOSE == 2) stdout.write(`+Skill[${skillId}] `);
                   let skillInfo = {id:skillId,name:'',description:'',iconURL:''};
                   block.find('div.structItem-title').each((i,elSkillName)=>{
                     if (i === iSkill){
@@ -135,7 +135,7 @@ async function getMonsterInfo(id){
     }
   })
   .catch((err)=>{
-    if (VERBOSE === 2) stdout.write(`ERROR.\n${err}\n`);
+    if (VERBOSE == 2) stdout.write(`ERROR.\n${err}\n`);
   })
   return info;
 }
@@ -249,35 +249,35 @@ async function getItemInfo(id){
     }
   })
   .catch((err)=>{
-    if (VERBOSE === 2) stdout.write(`ERROR.\n${err}\n`);
+    if (VERBOSE == 2) stdout.write(`ERROR.\n${err}\n`);
   })
   return info
 }
 
 async function dumpMonster(id){
   return new Promise(async (resolve)=>{
-    if (VERBOSE === 2) stdout.write(`Monster[${id}].. `);
+    if (VERBOSE == 2) stdout.write(`Monster[${id}].. `);
 
     if (!OVERWRITE && hasDumpedMonster(id)){
-      if (VERBOSE === 2) stdout.write("Already dumped.\n");
+      if (VERBOSE == 2) stdout.write("Already dumped.\n");
       resolve();
     } else {
       const monsterInfo = await getMonsterInfo(id);
       if (monsterInfo){
-        if (VERBOSE === 2) stdout.write(`Downloading info.. `);
+        if (VERBOSE == 2) stdout.write(`Downloading info.. `);
         try {
           await saveJSON(monsterInfo, 'monster', id)
           await downloadImage(`https://pirateking.online/data/database/monster/icon/${id}.png`, 'monster', id);
           await downloadImage(`https://pirateking.online/data/database/monster/${id}.png`, 'monster', id+'b');
-          if (VERBOSE === 2) stdout.write("OK.\n");
+          if (VERBOSE == 2) stdout.write("OK.\n");
           resolve();
         } catch (err) {
-          if (VERBOSE === 2) stdout.write(`ERROR.\n${err.message}\n`);
+          if (VERBOSE == 2) stdout.write(`ERROR.\n${err.message}\n`);
           if (VERBOSE > 0) ERROR_COUNT++;
           resolve();
         }
       } else {
-        if (VERBOSE === 2) stdout.write("Not found.\n");
+        if (VERBOSE == 2) stdout.write("Not found.\n");
         resolve();
       }
     }
@@ -287,15 +287,15 @@ async function dumpMonster(id){
 async function dumpSkill(id){
   return new Promise(async (resolve)=>{
     const {name,description,iconURL} = SKILLS_FETCH_QUEUE[id];
-    if (VERBOSE === 2) stdout.write(`Skill[${id}].. `);
+    if (VERBOSE == 2) stdout.write(`Skill[${id}].. `);
     try {
       await saveJSON({name,description}, 'skill', id);
       await downloadImage(iconURL, 'skill', id);
-      if (VERBOSE === 2) stdout.write("OK.\n");
+      if (VERBOSE == 2) stdout.write("OK.\n");
       resolve()
     } catch (err) {
-      if (VERBOSE === 2) stdout.write(`ERROR.\n${err.message}\n`);
-      if (VERBOSE === 1) ERROR_COUNT++;
+      if (VERBOSE == 2) stdout.write(`ERROR.\n${err.message}\n`);
+      if (VERBOSE == 1) ERROR_COUNT++;
       resolve()
     }
   })
@@ -303,27 +303,27 @@ async function dumpSkill(id){
 
 async function dumpItem(id){
   return new Promise(async (resolve)=>{
-    if (VERBOSE === 2) stdout.write(`Item[${id}].. `);
+    if (VERBOSE == 2) stdout.write(`Item[${id}].. `);
 
     if (!OVERWRITE && hasDumpedItem(id)){
-      if (VERBOSE === 2) stdout.write("Already dumped.\n");
+      if (VERBOSE == 2) stdout.write("Already dumped.\n");
       resolve();
     } else {
       const [itemInfo, iconURL] = await getItemInfo(id);
       if (itemInfo){
-        if (VERBOSE === 2) stdout.write(`Downloading info.. `);
+        if (VERBOSE == 2) stdout.write(`Downloading info.. `);
         try {
           await saveJSON(itemInfo, 'item', id)
           await downloadImage(iconURL, 'item', id);
-          if (VERBOSE === 2) stdout.write("OK.\n");
+          if (VERBOSE == 2) stdout.write("OK.\n");
           resolve();
         } catch (err) {
-          if (VERBOSE === 2) stdout.write(`ERROR.\n${err.message}\n`);
+          if (VERBOSE == 2) stdout.write(`ERROR.\n${err.message}\n`);
           if (VERBOSE > 0) ERROR_COUNT++;
           resolve();
         }
       } else {
-        if (VERBOSE === 2) stdout.write("Not found.\n");
+        if (VERBOSE == 2) stdout.write("Not found.\n");
         resolve();
       }
     }
@@ -438,20 +438,20 @@ async function getItemIds(pageIndex){
     if (monsterIds.length){
       if (VERBOSE >= 1) stdout.write(`OK. Monster IDs: ${monsterIds[0]} ~ ${monsterIds[monsterIds.length-1]}\n`);
 
-      if (VERBOSE === 1) stdout.write("Fetching monsters.. ");
+      if (VERBOSE == 1) stdout.write("Fetching monsters.. ");
 
       for (let i = 0; i < monsterIds.length; i++) {
         await dumpMonster(monsterIds[i]);
       }
 
-      if (VERBOSE === 1) stdout.write("DONE.\n");
-      if (VERBOSE === 1 && Object.keys(SKILLS_FETCH_QUEUE).length) stdout.write("Fetching skills.. ");
+      if (VERBOSE == 1) stdout.write("DONE.\n");
+      if (VERBOSE == 1 && Object.keys(SKILLS_FETCH_QUEUE).length) stdout.write("Fetching skills.. ");
 
       for (const skillId in SKILLS_FETCH_QUEUE) {
         await dumpSkill(skillId);
       }
 
-      if (VERBOSE === 1) stdout.write("DONE.\n");
+      if (VERBOSE == 1) stdout.write("DONE.\n");
     } else {
       if (VERBOSE >= 1) stdout.write("ERROR.\n");
     }
@@ -469,13 +469,13 @@ async function getItemIds(pageIndex){
     if (itemIds.length){
       if (VERBOSE >= 1) stdout.write(`OK. Item IDs: ${itemIds[0]} ~ ${itemIds[itemIds.length-1]}\n`);
 
-      if (VERBOSE === 1) stdout.write("Fetching items.. ");
+      if (VERBOSE == 1) stdout.write("Fetching items.. ");
 
       for (let i = 0; i < itemIds.length; i++) {
         await dumpItem(itemIds[i]);
       }
 
-      if (VERBOSE === 1) stdout.write("DONE.\n");
+      if (VERBOSE == 1) stdout.write("DONE.\n");
     } else {
       if (VERBOSE >= 1) stdout.write("ERROR.\n");
     }
