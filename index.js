@@ -11,6 +11,8 @@ const OVERWRITE = process.env.OVERWRITE ? (process.env.OVERWRITE.toLowerCase() =
 var SKILLS_FETCH_QUEUE = {},
     ERROR_COUNT = 0;
 
+// File Check
+
 function isMissingFiles(arrayFilePath){
   for (let i = 0; i < arrayFilePath.length; i++){
     if (!Fs.existsSync(arrayFilePath[i])){
@@ -19,6 +21,30 @@ function isMissingFiles(arrayFilePath){
   }
   return false
 }
+
+function hasDumpedMonster(id){
+  return !isMissingFiles([
+    Path.resolve(PATH_DUMP, 'image', 'monster', `${id}.png`),
+    Path.resolve(PATH_DUMP, 'image', 'monster', `${id}b.png`),
+    Path.resolve(PATH_DUMP, 'info', 'monster', `${id}.json`)
+  ]);
+}
+
+function hasDumpedSkill(id){
+  return !isMissingFiles([
+    Path.resolve(PATH_DUMP, 'image', 'skill', `${id}.png`),
+    Path.resolve(PATH_DUMP, 'info', 'skill', `${id}.json`)
+  ]);
+}
+
+function hasDumpedItem(id){
+  return !isMissingFiles([
+    Path.resolve(PATH_DUMP, 'image', 'item', `${id}.png`),
+    Path.resolve(PATH_DUMP, 'info', 'item', `${id}.json`)
+  ]);
+}
+
+// File Write
 
 async function downloadImage(url, folderName, fileName){  
   const path = Path.resolve(PATH_DUMP, 'image', folderName, `${fileName}.png`);
@@ -43,26 +69,162 @@ async function saveJSON(obj, folderName, fileName){
   })
 }
 
-function hasDumpedMonster(id){
-  return !isMissingFiles([
-    Path.resolve(PATH_DUMP, 'image', 'monster', `${id}.png`),
-    Path.resolve(PATH_DUMP, 'image', 'monster', `${id}b.png`),
-    Path.resolve(PATH_DUMP, 'info', 'monster', `${id}.json`)
-  ]);
+async function dumpMonster(id){
+  return new Promise(async (resolve)=>{
+    if (VERBOSE == 2) stdout.write(`Monster[${id}].. `);
+
+    if (!OVERWRITE && hasDumpedMonster(id)){
+      if (VERBOSE == 2) stdout.write("Already dumped.\n");
+      resolve();
+    } else {
+      const monsterInfo = await getMonsterInfo(id);
+      if (monsterInfo){
+        if (VERBOSE == 2) stdout.write(`Downloading info.. `);
+        try {
+          await saveJSON(monsterInfo, 'monster', id)
+          await downloadImage(`https://pirateking.online/data/database/monster/icon/${id}.png`, 'monster', id);
+          await downloadImage(`https://pirateking.online/data/database/monster/${id}.png`, 'monster', id+'b');
+          if (VERBOSE == 2) stdout.write("OK.\n");
+          resolve();
+        } catch (err) {
+          if (VERBOSE == 2) stdout.write(`ERROR.\n${err.message}\n`);
+          ERROR_COUNT++;
+          resolve();
+        }
+      } else {
+        if (VERBOSE == 2) stdout.write("Not found.\n");
+        resolve();
+      }
+    }
+  })
 }
 
-function hasDumpedSkill(id){
-  return !isMissingFiles([
-    Path.resolve(PATH_DUMP, 'image', 'skill', `${id}.png`),
-    Path.resolve(PATH_DUMP, 'info', 'skill', `${id}.json`)
-  ]);
+async function dumpSkill(id){
+  return new Promise(async (resolve)=>{
+    const {name,description,iconURL} = SKILLS_FETCH_QUEUE[id];
+    if (VERBOSE == 2) stdout.write(`Skill[${id}].. `);
+    try {
+      await saveJSON({name,description}, 'skill', id);
+      await downloadImage(iconURL, 'skill', id);
+      if (VERBOSE == 2) stdout.write("OK.\n");
+      resolve();
+    } catch (err) {
+      if (VERBOSE == 2) stdout.write(`ERROR.\n${err.message}\n`);
+      ERROR_COUNT++;
+      resolve();
+    }
+  })
 }
 
-function hasDumpedItem(id){
-  return !isMissingFiles([
-    Path.resolve(PATH_DUMP, 'image', 'item', `${id}.png`),
-    Path.resolve(PATH_DUMP, 'info', 'item', `${id}.json`)
-  ]);
+async function dumpItem(id){
+  return new Promise(async (resolve)=>{
+    if (VERBOSE == 2) stdout.write(`Item[${id}].. `);
+
+    if (!OVERWRITE && hasDumpedItem(id)){
+      if (VERBOSE == 2) stdout.write("Already dumped.\n");
+      resolve();
+    } else {
+      const [itemInfo, iconURL] = await getItemInfo(id);
+      if (itemInfo){
+        if (VERBOSE == 2) stdout.write(`Downloading info.. `);
+        try {
+          await saveJSON(itemInfo, 'item', id)
+          await downloadImage(iconURL, 'item', id);
+          if (VERBOSE == 2) stdout.write("OK.\n");
+          resolve();
+        } catch (err) {
+          if (VERBOSE == 2) stdout.write(`ERROR.\n${err.message}\n`);
+          ERROR_COUNT++;
+          resolve();
+        }
+      } else {
+        if (VERBOSE == 2) stdout.write("Not found.\n");
+        resolve();
+      }
+    }
+  })
+}
+
+//
+
+async function getMonsterPages(){
+  return new Promise(resolve=>{
+    Axios({url:`https://pirateking.online/database/monster/?count=50`})
+    .then(response=>{
+      if (response.status === 200){
+        const $ = Cheerio.load(response.data);
+        resolve($('.pageNav-page').last().text().trim());
+      }
+      ERROR_COUNT++;
+      resolve();
+    })
+    .catch(()=>{
+      ERROR_COUNT++;
+      resolve();
+    })
+  })
+}
+
+async function getItemPages(){
+  return new Promise(resolve=>{
+    Axios({url:`https://pirateking.online/database/item/?count=50`})
+    .then(response=>{
+      if (response.status === 200){
+        const $ = Cheerio.load(response.data);
+        resolve($('.pageNav-page').last().text().trim());
+      }
+      ERROR_COUNT++;
+      resolve();
+    })
+    .catch(()=>{
+      ERROR_COUNT++;
+      resolve();
+    })
+  })
+}
+
+async function getMonsterIds(pageIndex){
+  return new Promise(resolve=>{
+    Axios({url:`https://pirateking.online/database/monster/page-${pageIndex}?count=50`})
+    .then(response=>{
+      if (response.status === 200){
+        const $ = Cheerio.load(response.data);
+        const monsterIds = [];
+        $('.database-id').each((_,elMonsterId)=>{
+          monsterIds.push($(elMonsterId).text().trim().split(' ')[1]);
+        })
+        resolve(monsterIds);
+      }
+      ERROR_COUNT++;
+      resolve();
+    })
+    .catch(()=>{
+      ERROR_COUNT++;
+      resolve();
+    })
+  })
+}
+
+async function getItemIds(pageIndex){
+  return new Promise(resolve=>{
+    Axios({url:`https://pirateking.online/database/item/page-${pageIndex}?count=50`})
+    .then(response=>{
+      if (response.status === 200){
+        const $ = Cheerio.load(response.data);
+        const itemIds = [];
+        $('.database-id').each((_,elItemId)=>{
+          itemIds.push($(elItemId).text().trim().split(' ')[1]);
+        })
+        resolve(itemIds);
+      }
+      ERROR_COUNT++;
+      resolve();
+    })
+    .catch(()=>{
+      ERROR_COUNT++;
+      resolve();
+    })
+  })
 }
 
 async function getMonsterInfo(id){
@@ -254,154 +416,6 @@ async function getItemInfo(id){
   return info
 }
 
-async function dumpMonster(id){
-  return new Promise(async (resolve)=>{
-    if (VERBOSE == 2) stdout.write(`Monster[${id}].. `);
-
-    if (!OVERWRITE && hasDumpedMonster(id)){
-      if (VERBOSE == 2) stdout.write("Already dumped.\n");
-      resolve();
-    } else {
-      const monsterInfo = await getMonsterInfo(id);
-      if (monsterInfo){
-        if (VERBOSE == 2) stdout.write(`Downloading info.. `);
-        try {
-          await saveJSON(monsterInfo, 'monster', id)
-          await downloadImage(`https://pirateking.online/data/database/monster/icon/${id}.png`, 'monster', id);
-          await downloadImage(`https://pirateking.online/data/database/monster/${id}.png`, 'monster', id+'b');
-          if (VERBOSE == 2) stdout.write("OK.\n");
-          resolve();
-        } catch (err) {
-          if (VERBOSE == 2) stdout.write(`ERROR.\n${err.message}\n`);
-          if (VERBOSE > 0) ERROR_COUNT++;
-          resolve();
-        }
-      } else {
-        if (VERBOSE == 2) stdout.write("Not found.\n");
-        resolve();
-      }
-    }
-  })
-}
-
-async function dumpSkill(id){
-  return new Promise(async (resolve)=>{
-    const {name,description,iconURL} = SKILLS_FETCH_QUEUE[id];
-    if (VERBOSE == 2) stdout.write(`Skill[${id}].. `);
-    try {
-      await saveJSON({name,description}, 'skill', id);
-      await downloadImage(iconURL, 'skill', id);
-      if (VERBOSE == 2) stdout.write("OK.\n");
-      resolve()
-    } catch (err) {
-      if (VERBOSE == 2) stdout.write(`ERROR.\n${err.message}\n`);
-      if (VERBOSE == 1) ERROR_COUNT++;
-      resolve()
-    }
-  })
-}
-
-async function dumpItem(id){
-  return new Promise(async (resolve)=>{
-    if (VERBOSE == 2) stdout.write(`Item[${id}].. `);
-
-    if (!OVERWRITE && hasDumpedItem(id)){
-      if (VERBOSE == 2) stdout.write("Already dumped.\n");
-      resolve();
-    } else {
-      const [itemInfo, iconURL] = await getItemInfo(id);
-      if (itemInfo){
-        if (VERBOSE == 2) stdout.write(`Downloading info.. `);
-        try {
-          await saveJSON(itemInfo, 'item', id)
-          await downloadImage(iconURL, 'item', id);
-          if (VERBOSE == 2) stdout.write("OK.\n");
-          resolve();
-        } catch (err) {
-          if (VERBOSE == 2) stdout.write(`ERROR.\n${err.message}\n`);
-          if (VERBOSE > 0) ERROR_COUNT++;
-          resolve();
-        }
-      } else {
-        if (VERBOSE == 2) stdout.write("Not found.\n");
-        resolve();
-      }
-    }
-  })
-}
-
-async function getMonsterPages(){
-  return new Promise(resolve=>{
-    Axios({url:`https://pirateking.online/database/monster/?count=50`})
-    .then(response=>{
-      if (response.status === 200){
-        const $ = Cheerio.load(response.data);
-        resolve($('.pageNav-page').last().text().trim());
-      }
-      ERROR_COUNT++;
-      resolve()
-    })
-    .catch(()=>{
-      ERROR_COUNT++;
-      resolve()
-    })
-  })
-}
-
-async function getItemPages(){
-  return new Promise(resolve=>{
-    Axios({url:`https://pirateking.online/database/item/?count=50`})
-    .then(response=>{
-      if (response.status === 200){
-        const $ = Cheerio.load(response.data);
-        resolve($('.pageNav-page').last().text().trim());
-      }
-      ERROR_COUNT++;
-      resolve()
-    })
-    .catch(()=>{
-      ERROR_COUNT++;
-      resolve()
-    })
-  })
-}
-
-async function getMonsterIds(pageIndex){
-  return new Promise(resolve=>{
-    Axios({url:`https://pirateking.online/database/monster/page-${pageIndex}?count=50`})
-    .then(response=>{
-      if (response.status === 200){
-        const $ = Cheerio.load(response.data);
-        const monsterIds = [];
-        $('.database-id').each((_,elMonsterId)=>{
-          monsterIds.push($(elMonsterId).text().trim().split(' ')[1]);
-        })
-        resolve(monsterIds);
-      }
-      resolve()
-    })
-    .catch(()=>resolve())
-  })
-}
-
-async function getItemIds(pageIndex){
-  return new Promise(resolve=>{
-    Axios({url:`https://pirateking.online/database/item/page-${pageIndex}?count=50`})
-    .then(response=>{
-      if (response.status === 200){
-        const $ = Cheerio.load(response.data);
-        const itemIds = [];
-        $('.database-id').each((_,elItemId)=>{
-          itemIds.push($(elItemId).text().trim().split(' ')[1]);
-        })
-        resolve(itemIds);
-      }
-      resolve()
-    })
-    .catch(()=>resolve())
-  })
-}
-
 (async ()=>{
   console.time('DumpTime');
   console.log("PirateKingScraper:");
@@ -420,10 +434,9 @@ async function getItemIds(pageIndex){
   }
 
   let monsterIds = [],
-      itemIds = [];
-
-  let monsterPages = await getMonsterPages();
-  let itemPages = await getItemPages();
+      itemIds = [],
+      monsterPages = await getMonsterPages(),
+      itemPages = await getItemPages();
 
   if (VERBOSE >= 1) console.log(monsterPages ? `Found ${monsterPages} monster pages.` : "Couldn't find monster pages.");
   if (VERBOSE >= 1) console.log(itemPages ? `Found ${itemPages} item pages.` : "Couldn't find item pages.");
